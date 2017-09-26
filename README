@@ -1,0 +1,54 @@
+skread
+======
+
+A command-line program that extracts information from databases stored
+in Sk file format.  It can be used to print a summary of database
+tables and to export them to SQLite format.
+
+The Sk format is used by some electronic dictionaries, such as the
+electronic version of the Longman Pronunciation Dictionary.  An
+archived copy of IDM's web page — the company that developed Sk — can
+be found in the link below:
+
+https://web.archive.org/web/20120626023118/http://sk.idm.fr/home.html
+
+
+** Usage
+
+To export a large number databases under a directory tree, the
+following steps are recommended:
+
+1. Use the script skargs in combination with find to produce a list of
+arguments and store them in a text file.
+
+find dir/ -iname '*.cft' | sort | xargs ./skargs > dir.in
+
+This file is organised in blocks, one for every database, separated
+by a form-feed character.  Each block has four lines indicating
+
+- the path to the input database
+- the name of the table to be created
+- a column specification
+- the output file
+
+in that order.
+
+2. Edit the file as necessary.
+
+3. Execute skread using the parameters from the file.
+
+grep -v ^# dir.in | awk 'BEGIN { RS="\f" } /\S/ { print $4 "/" $2;
+     system("./skread.py -x -t " $2 " -c \"" $3 "\" -o " $4 " " $1) }'
+
+This may take a while, depending on the size of the databases.
+
+
+** Requirements
+
+Python 3.5 or above.
+
+
+** Copyright
+
+This software is distributed under the terms of the GNU General Public
+License version 3.

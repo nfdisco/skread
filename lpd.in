@@ -1,0 +1,231 @@
+lpd/lpd.data/fs_pd.skn/dirs.skn/config.cft
+dirs
+NAME(TEXT),DIRS,FILES,PARENT
+fs_pd.db
+
+lpd/lpd.data/fs_pd.skn/dirs.skn/DIRS.skn/config.cft
+dirs_DIRS
+A_DIRS
+fs_pd.db
+
+lpd/lpd.data/fs_pd.skn/dirs.skn/FILES.skn/config.cft
+dirs_FILES
+A_FILE
+fs_pd.db
+
+lpd/lpd.data/fs_pd.skn/files.skn/config.cft
+files
+TYPE,CONTENT(BLOB),NAME(TEXT),TITLE(TEXT),A_FILE,TEXTTITLE(TEXT),A_DIRS
+fs_pd.db
+
+lpd/lpd.data/fs.skn/arl.skn/config.cft
+arl
+guid(TEXT),display(TEXT),class,a_id,id(TEXT)
+fs.db
+
+# decoding error
+lpd/lpd.data/fs.skn/arl.skn/idx_index.skn/wordlist/revsimtok.skn/config.cft
+arl_idx_index_revsimtok
+ID_SIMTOKEN,TOKEN(BLOB)
+fs.db
+
+# decoding error
+lpd/lpd.data/fs.skn/arl.skn/idx_index.skn/wordlist/revtok.skn/config.cft
+arl_idx_index_revtok
+ID_TOKEN,TOKEN(BLOB)
+fs.db
+
+lpd/lpd.data/fs.skn/arl.skn/idx_index.skn/wordlist/simtok.skn/config.cft
+arl_idx_index_simtok
+TOKEN(TEXT),TOKENS
+fs.db
+
+lpd/lpd.data/fs.skn/arl.skn/idx_index.skn/wordlist/simtok.skn/TOKENS.skn/config.cft
+arl_idx_index_simtok_TOKENS
+ID_TOKEN
+fs.db
+
+lpd/lpd.data/fs.skn/arl.skn/idx_index.skn/wordlist/tok.skn/config.cft
+arl_idx_index_tok
+TOKEN(TEXT),INFLECTED,BASE,OCC
+fs.db
+
+lpd/lpd.data/fs.skn/arl.skn/idx_index.skn/wordlist/tok.skn/OCC.skn/config.cft
+arl_idx_index_tok_OCC
+a_id,STRUCT,POSITION
+fs.db
+
+lpd/lpd.data/fs.skn/arl.skn/idx_index.skn/wordlist/tok.skn/OCC.skn/POSITION.skn/config.cft
+arl_idx_index_tok_OCC_POSITION
+POS
+fs.db
+
+lpd/lpd.data/fs.skn/arl_sound.skn/config.cft
+arl_sound
+guid(TEXT),display(TEXT),class,a_id,id(TEXT)
+fs.db
+
+# decoding error
+lpd/lpd.data/fs.skn/arl_sound.skn/idx_index.skn/wordlist/revsimtok.skn/config.cft
+arl_sound_idx_index_revsimtok
+ID_SIMTOKEN,TOKEN(BLOB)
+fs.db
+
+# decoding error
+lpd/lpd.data/fs.skn/arl_sound.skn/idx_index.skn/wordlist/revtok.skn/config.cft
+arl_sound_idx_index_revtok
+ID_TOKEN,TOKEN(BLOB)
+fs.db
+
+lpd/lpd.data/fs.skn/arl_sound.skn/idx_index.skn/wordlist/simtok.skn/config.cft
+arl_sound_idx_index_simtok
+TOKEN(TEXT),TOKENS
+fs.db
+
+lpd/lpd.data/fs.skn/arl_sound.skn/idx_index.skn/wordlist/simtok.skn/TOKENS.skn/config.cft
+arl_sound_idx_index_simtok_TOKENS
+ID_TOKEN
+fs.db
+
+lpd/lpd.data/fs.skn/arl_sound.skn/idx_index.skn/wordlist/tok.skn/config.cft
+arl_sound_idx_index_tok
+TOKEN(TEXT),INFLECTED,BASE,OCC
+fs.db
+
+lpd/lpd.data/fs.skn/arl_sound.skn/idx_index.skn/wordlist/tok.skn/OCC.skn/config.cft
+arl_sound_idx_index_tok_OCC
+a_id,STRUCT,POSITION
+fs.db
+
+lpd/lpd.data/fs.skn/arl_sound.skn/idx_index.skn/wordlist/tok.skn/OCC.skn/POSITION.skn/config.cft
+arl_sound_idx_index_tok_OCC_POSITION
+POS
+fs.db
+
+lpd/lpd.data/fs.skn/dirs.skn/config.cft
+dirs
+NAME(TEXT),DIRS,FILES,PARENT
+fs.db
+
+lpd/lpd.data/fs.skn/dirs.skn/DIRS.skn/config.cft
+dirs_DIRS
+A_DIRS
+fs.db
+
+lpd/lpd.data/fs.skn/dirs.skn/FILES.skn/config.cft
+dirs_FILES
+A_FILE
+fs.db
+
+lpd/lpd.data/fs.skn/files.skn/config.cft
+files
+TYPE,CONTENT(BLOB),NAME(TEXT),TITLE(TEXT),A_FILE,TEXTTITLE(TEXT),A_DIRS
+fs.db
+
+lpd/lpd.data/help.skn/dirs.skn/config.cft
+dirs
+NAME(TEXT),DIRS,FILES,PARENT
+help.db
+
+lpd/lpd.data/help.skn/dirs.skn/DIRS.skn/config.cft
+dirs_DIRS
+A_DIRS
+help.db
+
+lpd/lpd.data/help.skn/dirs.skn/FILES.skn/config.cft
+dirs_FILES
+A_FILE
+help.db
+
+lpd/lpd.data/help.skn/files.skn/config.cft
+files
+TYPE,CONTENT(BLOB),NAME(TEXT),TITLE(TEXT),A_FILE,TEXTTITLE(TEXT),A_DIRS
+help.db
+
+# unable to determine table name
+lpd/lpd.data/hwd.skn/config.cft
+hwd
+guid(TEXT),search(TEXT),label(TEXT),a_id,id(TEXT)
+hwd.db
+ 
+lpd/lpd.data/hwd.skn/lc_id.skn/config.cft
+lc_id
+a_id,id(TEXT)
+hwd.db
+
+# unable to determine table name
+lpd/lpd.data/map.skn/config.cft
+map
+tag_name(TEXT),old_id(TEXT),a_id,new_id(TEXT)
+map.db
+
+lpd/lpd.data/map.skn/lc_old_id.skn/config.cft
+lc_old_id
+a_id,old_id(TEXT)
+map.db
+
+lpd/lpd.data/pdf.skn/dirs.skn/config.cft
+dirs
+NAME(TEXT),DIRS,FILES,PARENT
+pdf.db
+
+lpd/lpd.data/pdf.skn/dirs.skn/DIRS.skn/config.cft
+dirs_DIRS
+A_DIRS
+pdf.db
+
+lpd/lpd.data/pdf.skn/dirs.skn/FILES.skn/config.cft
+dirs_FILES
+A_FILE
+pdf.db
+
+lpd/lpd.data/pdf.skn/files.skn/config.cft
+files
+TYPE,CONTENT(BLOB),NAME(TEXT),TITLE(TEXT),A_FILE,TEXTTITLE(TEXT),A_DIRS
+pdf.db
+
+lpd/lpd.data/pic.skn/dirs.skn/config.cft
+dirs
+NAME(TEXT),DIRS,FILES,PARENT
+pic.db
+
+lpd/lpd.data/pic.skn/dirs.skn/DIRS.skn/config.cft
+dirs_DIRS
+A_DIRS
+pic.db
+
+lpd/lpd.data/pronguide.skn/dirs.skn/config.cft
+dirs
+NAME(TEXT),DIRS,FILES,PARENT
+pronguide.db
+
+lpd/lpd.data/pronguide.skn/dirs.skn/DIRS.skn/config.cft
+dirs_DIRS
+A_DIRS
+pronguide.db
+
+lpd/lpd.data/pronguide.skn/dirs.skn/FILES.skn/config.cft
+dirs_FILES
+A_FILE
+pronguide.db
+
+lpd/lpd.data/pronguide.skn/files.skn/config.cft
+files
+TYPE,CONTENT(BLOB),NAME(TEXT),TITLE(TEXT),A_FILE,TEXTTITLE(TEXT),A_DIRS
+pronguide.db
+
+lpd/lpd.data/sound.skn/dirs.skn/DIRS.skn/config.cft
+dirs_DIRS
+A_DIRS
+sound.db
+
+lpd/lpd.data/sound.skn/dirs.skn/FILES.skn/config.cft
+dirs_FILES
+A_FILE
+sound.db
+
+lpd/lpd.data/sound.skn/files.skn/config.cft
+files
+TYPE,CONTENT(BLOB),NAME(TEXT),TITLE(TEXT),A_FILE,TEXTTITLE(TEXT),A_DIRS
+sound.db
+

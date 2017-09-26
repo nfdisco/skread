@@ -1,0 +1,102 @@
+#!/bin/sh
+
+SKREAD="./skread.py"
+
+db_name () (
+    IFS=/
+    for dir in $1; do
+        if [ "${dir%.skn}" != "$dir" ]; then
+            printf "%s\n" "${dir%.skn}"
+            break
+        fi
+    done
+)
+
+table_name () (
+    IFS=/
+    sep=
+    count=0
+    for dir in $1; do
+        if test "${dir%.skn}" != "$dir"; then
+            count=$(($count+1))
+            if [ "$count" -lt 2 ]; then
+                continue
+            fi
+            printf "%s" "${sep}${dir%.skn}"
+            if [ -z "$sep" ]; then
+                sep=_
+            fi
+        fi
+    done
+    printf "\n"
+)
+
+table_summary () {
+    "$SKREAD" -s "$1"
+}
+
+columns () {
+    grep . \
+    | head -n -1 \
+    | paste -s -d " " \
+    | tr -d " " \
+    | tr "," "\n" \
+    | sed "s/^.*(DATA)$/\0(BLOB)/" \
+    | sed "s/([^)]*)//" \
+    | paste -s -d ","
+}
+
+zero_rows () {
+    grep . \
+    | tail -n 1 \
+    | grep -q "[[:space:]]*0[[:space:]]"
+}
+
+generate_args () {
+
+    output="$(db_name "$1")"
+
+    table="$(table_name "$1")"
+
+    summary="$(table_summary "$1")"
+
+    column_spec="$(printf "$summary" | columns)"
+
+    pre=
+
+    if printf "$summary" | zero_rows; then
+        pre="# "
+        printf "${pre}table has zero rows\n"
+    fi
+
+    if [ -z "$output" ]; then
+        pre="# "
+        printf "${pre}unable to determine output file\n"
+    fi
+
+    if [ -z "$table" ]; then
+        pre="# "
+        printf "${pre}unable to determine table name\n"
+    fi
+
+    if [ -z "$column_spec" ]; then
+        pre="# "
+        printf "${pre}unable to determine column specification\n"
+    fi
+
+    printf "${pre}%s\n" "$1"
+    printf "${pre}%s\n" "$table"
+    printf "${pre}%s\n" "$column_spec"
+    printf "${pre}%s\n" "${output}.db"
+    printf "\f"
+}
+
+if [ $# -eq 0 ]; then
+    printf "usage: skargs PATH [PATH ...]"
+    exit 1
+fi
+
+while [ $# -gt 0 ]; do
+    generate_args "$1"
+    shift
+done

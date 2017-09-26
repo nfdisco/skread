@@ -1,0 +1,587 @@
+#!/usr/bin/env python3
+
+import sys
+import os
+import re
+import collections
+import struct
+import zlib
+import textwrap
+import logging
+import sqlite3
+
+
+Table = collections.namedtuple(
+    'Table', ('base_dir', 'path', 'row_count', 'record', 'fields'))
+
+Field = collections.namedtuple(
+    'Field', ('name', 'type', 'path', 'compression', 'catalog_path'))
+
+Record = collections.namedtuple('Record', ('size', 'padding', 'format'))
+
+Type = collections.namedtuple('Type', ('size', 'format', 'padding'))
+
+
+TYPES = {
+    'ULONG' : Type(4, 'L', 0),
+    'SLONG' : Type(4, 'l', 0),
+    'U24' : Type(3, 'L', 1),
+    'S24' : Type(3, 'l', 1),
+    'USHORT' : Type(2, 'H', 0),
+    'SSHORT' : Type(2, 'h', 0),
+    'UBYTE' : Type(1, 'B', 0),
+    'SBYTE' : Type(1, 'b', 0)
+}
+
+CATALOG_RECORD_SIZE = 8
+CATALOG_RECORD_FORMAT = '2L'
+
+BYTE_ORDER = '<'         # little endian
+
+
+class Error(Exception): pass
+
+
+def parse_table_config(path_name):
+    """Parse table configuration file into a dictionary."""
+
+    conf = {}
+    section = None
+
+    logging.debug('reading configuration file \'{:s}\''.format(path_name))
+    try:
+        with open(path_name, 'r') as config_file:
+            for i, line in enumerate(config_file):
+                m = re.match('^\\s*\\[([^[]*)\\]', line)
+                if m:
+                    section = m.group(1)
+                    continue
+                m = re.match('^\\s*([^\\s=]+)\\s*=\\s*(\\S+)', line)
+                if m:
+                    conf.setdefault(
+                        section,
+                        collections.OrderedDict()).update([m.groups()])
+                    continue
+                if re.match('\\S', line):
+                    logging.warning(
+                        'line {:d}: ignoring malformed line'.format(i))
+    except OSError as e:
+        logging.error(e)
+        raise Error('failure reading table configuration')
+
+    logging.debug('reading complete')
+
+    return conf
+
+
+def read_table(configuration_file_name):
+    """Read table configuration from configuration file."""
+
+    config = parse_table_config(configuration_file_name)
+
+    base_dir = os.path.dirname(configuration_file_name)
+
+    logging.debug('parsing table configuration')
+
+    config_dat = config.get('DAT')
+    if not config_dat:
+        raise Error('section \'DAT\' is missing')
+
+    fields = []
+    datum_types = []
+    for key, value in config_dat.items():
+        if not key.startswith('$') or ',' in key:
+            continue
+        field_name = key[1:]
+        field_type = value
+
+        datum_type_name = config_dat.get(key + ',OFFSET', field_type)
+        datum_type = TYPES.get(datum_type_name)
+        if not datum_type:
+            raise Error('unknown datum type: {:s}'.format(datum_type_name))
+
+        datum_types.append(datum_type)
+
+        field_parameters = config.get(key, {})
+        if 'PATH' in field_parameters:
+            field_path = os.path.join(base_dir, field_parameters['PATH'])
+        else:
+            field_path = None
+        field_compression = field_parameters.get('COMPRESSION', None)
+        if 'CATALOG' in field_parameters:
+            field_catalog = os.path.join(base_dir, field_parameters['CATALOG'])
+        else:
+            field_catalog = None
+
+        if field_path and field_compression and not field_catalog:
+            raise Error(
+                'catalog entry missing for field {}'.format(field_name))
+        if field_compression and field_compression != 'ZIP':
+            raise Error(
+                'unkown compression method {}'.format(field_compression))
+
+        fields.append(Field(field_name, field_type, field_path,
+                            field_compression, field_catalog))
+
+    page_file_name = config_dat.get('PATH')
+    if not page_file_name:
+        raise Error('page file entry is missing')
+    page_file_path = os.path.join(base_dir, page_file_name)
+    page_file_size = get_file_size(page_file_path)
+
+    record_size = sum(datum_type.size for datum_type in datum_types)
+
+    if record_size != 0:
+        row_count, remainder = divmod(page_file_size, record_size)
+        if remainder:
+            logging.warning('page file size not a multiple of record size')
+    else:
+        row_count = 0
+
+    padding = []
+    if record_size:
+        start, end = 0, 0
+        for d in datum_types:
+            end = end + d.size
+            if d.padding:
+                padding.append((slice(start, end), bytes(d.padding)))
+                start = end
+        if not d.padding:
+            padding.append((slice(start, end), bytes(0)))
+
+    format_string = BYTE_ORDER + str().join(
+        d.format for d in datum_types)
+
+    record = Record(record_size, tuple(padding), format_string)
+
+    logging.debug('parsing complete')
+
+    return Table(base_dir, page_file_path, row_count, record, fields)
+
+
+def get_file_size(path_name):
+    """Return file size."""
+
+    logging.debug('obtaining file size for \'{:s}\''.format(path_name))
+
+    try:
+        file_size = os.path.getsize(path_name)
+    except OSError as e:
+        logging.error(e)
+        raise Error('could not determine file size')
+
+    logging.debug('file is {:d} bytes long'.format(file_size))
+
+    return file_size
+
+
+def read_catalog(catalog_file_path):
+    """Read the catalog entries."""
+
+    catalog_file_size = get_file_size(catalog_file_path)
+
+    logging.debug(
+        'opening catalog file for reading \'{:s}\''.format(catalog_file_path))
+
+    try:
+        with open(catalog_file_path, 'rb') as f:
+            data = read_data(f, 0, catalog_file_size)
+    except (OSError, Error) as e:
+        logging.error(e)
+        raise Error('Failure reading catalog file')
+
+    items, remainder = divmod(catalog_file_size, CATALOG_RECORD_SIZE)
+    if remainder:
+        raise Error('catalog size not a multiple of catalog record size')
+
+    return tuple(
+        struct.unpack(BYTE_ORDER + CATALOG_RECORD_FORMAT,
+                      data[i:i + CATALOG_RECORD_SIZE])
+        for i in range(0, catalog_file_size, CATALOG_RECORD_SIZE))
+
+
+def get_page_offsets(catalog):
+    """Compute page offsets."""
+
+    def generator():
+        total = (0, 0)
+        for inflated, deflated in catalog:
+            yield total
+            total = (total[0] + inflated, total[1] + deflated)
+
+    return tuple(generator())
+
+
+def read_data(file_object, offset, size):
+    """Read data item from file object."""
+
+    # logging.debug('reading {:d} byte(s) at offset {:d}'.format(size, offset))
+
+    file_object.seek(offset)
+    if file_object.tell() != offset:
+        raise Error('seek failed on \'{:s}\''.format(file_object.name))
+
+    data = file_object.read(size)
+    if len(data) != size:
+        raise Error('read error on \'{:s}\''.format(file_object.name))
+
+    return data
+
+
+def read_compressed_item(data_file, offset, size, catalog, page_offsets):
+    """Read compressed data item from file object."""
+
+    locations = [offset + size - 1, offset]
+
+    logging.debug('looking for compressed data item at region {}-{}'.format(
+        locations[1], locations[0]))
+
+    if not len(catalog):
+        logging.debug('catalog has zero pages, giving up')
+        raise Error('attempt to retrieve item from empty file')
+
+    page_range = []
+    for i, (inflated, deflated) in enumerate(page_offsets):
+        while len(locations):
+            loc = locations.pop()
+            if loc < inflated:
+                page_range.append(i - 1)
+            else:
+                locations.append(loc)
+                break
+        else:
+            break
+
+    # check last page
+    end_of_file = inflated + catalog[-1][0]
+    if all(loc < end_of_file for loc in locations):
+        page_range.extend([i] * len(locations))
+    else:
+        logging.debug('offset beyond end of file {}'.format(end_of_file))
+        raise Error('offset out of range')
+
+    logging.debug('data item found at page range {}'.format(page_range))
+
+    subset = slice(page_range[0], page_range[1] + 1)
+
+    logging.debug('reading compressed pages')
+
+    pages = []
+    for page_size, page_offset in zip(
+            catalog[subset], page_offsets[subset]):
+
+        page = read_data(data_file, page_offset[1], page_size[1])
+        pages.append(zlib.decompress(page))
+
+    # logging.debug('reading compressed pages complete')
+
+    data_offset = offset - page_offsets[page_range[0]][0]
+    data = bytes().join(pages)[data_offset:data_offset + size]
+
+    # logging.debug('reading compressed data item complete')
+
+    return data
+
+
+def unpack_record(data, padding, format_string):
+    """Return a tuple of field values."""
+
+    b = bytes(0)
+    for s, p in padding:
+        b = b + data[s] + p
+
+    return struct.unpack(format_string, b)
+
+
+def get_records(table, start=0):
+    """Return iterator over records."""
+
+    try:
+        with open(table.path, 'rb') as f:
+            for i in range(start, table.row_count):
+                yield unpack_record(
+                    read_data(f, table.record.size * i, table.record.size),
+                    table.record.padding,
+                    table.record.format)
+    except (OSError, Error) as e:
+        logging.error(e)
+        raise Error('failure reading page file')
+
+
+def match_column_names(table, names):
+    """Return a tuple of integers."""
+
+    column_names = tuple(f.name for f in table.fields)
+    indexes = []
+    for name in names:
+        try:
+            indexes.append(column_names.index(name))
+        except ValueError:
+            raise Error('no such column: {}'.format(name))
+    return tuple(indexes)
+
+
+def get_rows(table, columns=None, start=0, strip=True):
+    """Return interator over rows."""
+
+    if not columns:
+        columns = tuple(f.name for f in table.fields)
+
+    indexes = match_column_names(table, columns)
+
+    fields = tuple(table.fields[i] for i in indexes)
+
+    col_catalog = []
+    col_page_offsets = []
+    file_sizes = []
+
+    for field in fields:
+        if not field.path:
+            catalog, page_offsets, file_size = None, None, None
+        elif field.catalog_path:
+            catalog = read_catalog(field.catalog_path)
+            page_offsets = get_page_offsets(catalog)
+            file_size = page_offsets[-1][0] + catalog[-1][0]
+        else:
+            catalog, page_offsets = None, None
+            file_size = get_file_size(field.path)
+
+        col_catalog.append(catalog)
+        col_page_offsets.append(page_offsets)
+        file_sizes.append(file_size)
+
+    files = []
+
+    try:
+        for field in fields:
+            if field.path:
+                files.append(open(field.path, 'rb'))
+            else:
+                files.append(None)
+
+        records = get_records(table, start)
+        record = next(records, None)
+        if not record:
+            return tuple()
+        else:
+            record_current = tuple(record[i] for i in indexes)
+
+        while True:
+            record = next(records, None)
+            if not record:
+                record_next = None
+                offsets_next = file_sizes
+            else:
+                record_next = tuple(record[i] for i in indexes)
+                offsets_next = record_next
+            sizes = tuple(
+                noffset - coffset if file else None for coffset, noffset, file
+                in zip(record_current, offsets_next, files))
+            row = []
+            for i in range(len(record_current)):
+                if not files[i]:
+                    row.append(record_current[i])
+                    continue
+                if col_catalog[i]:
+                    item = read_compressed_item(
+                        files[i], record_current[i], sizes[i], col_catalog[i],
+                        col_page_offsets[i])
+                else:
+                    item = read_data(files[i], record_current[i], sizes[i])
+                if strip:
+                    if item and item[-1] == 0:
+                        item = item[:-1]
+                row.append(item)
+            yield tuple(row)
+
+            if record_next is None:
+                break
+            else:
+                record_current = record_next
+    finally:
+        for f in files:
+            if f:
+                f.close()
+
+
+def describe(table):
+    """Print table summary."""
+
+    field_strings = ('{:s}({:s})'.format(f.name, f.type)
+                     for f in table.fields)
+
+    print(textwrap.fill(', '.join(field_strings)))
+    print('\n{:,d} rows'.format(table.row_count))
+
+
+def as_string(x):
+    if isinstance(x, bytes):
+        try:
+            value = x.decode('utf-8')
+        except UnicodeError as e:
+            logging.error(e)
+            raise Error('conversion to string failed')
+    else:
+        value = str(x)
+    return value
+
+
+def identity(x):
+    return x
+
+
+SQLITE_TYPES = {
+    'BLOB' : memoryview,
+    'TEXT' : as_string,
+    'INTEGER' : identity
+}
+
+DEFAULT_SQLITE_TYPES = {
+    'ULONG' : 'INTEGER',
+    'SLONG' : 'INTEGER',
+    'U24' : 'INTEGER',
+    'S24' : 'INTEGER',
+    'USHORT' : 'INTEGER',
+    'SSHORT' : 'INTEGER',
+    'UBYTE' : 'INTEGER',
+    'SBYTE' : 'INTEGER',
+    'DATA' : 'BLOB',
+    'LINK' : 'INTEGER'
+}
+
+def export(table, destination, table_name, columns=None, strip=True):
+    """Export table to SQLite format."""
+
+    if not columns:
+        columns = tuple((field.name, None) for field in table.fields)
+
+    columns = tuple((col_name, col_type if col_type else
+                     DEFAULT_SQLITE_TYPES.get(col_type, 'INTEGER'))
+                    for col_name, col_type in columns)
+
+    for col_name, col_type in columns:
+        if col_type not in SQLITE_TYPES:
+            raise Error('unsupported column type: {}'.format(col_type))
+
+    if not columns or not table.row_count:
+        raise Error('empty table')
+
+    try:
+        connection = sqlite3.connect(destination)
+        try:
+            connection.execute(
+                'CREATE TABLE {} ('.format(table_name) + \
+                ', '.join('{} {}'.format(col_name, col_type)
+                          for col_name, col_type in columns) \
+                + ')')
+
+            insert_string = 'INSERT INTO {} VALUES ({})'.format(
+                table_name, ','.join(['?'] * len(columns)))
+
+            col_types = tuple(col_type for col_name, col_type in columns)
+
+            for row in get_rows(
+                    table, tuple(n for n, t in columns), strip=strip):
+                connection.execute(
+                    insert_string,
+                    tuple(SQLITE_TYPES[col_type](datum) for
+                          datum, col_type in zip(row, col_types)))
+
+            connection.commit()
+
+        finally:
+            connection.close()
+
+    except (sqlite3.Error, sqlite3.Warning, Error) as e:
+        logging.error(e)
+        raise Error('export failed')
+
+
+
+if __name__ == '__main__':
+
+    import sys
+    import argparse
+    import signal
+
+    # avoid broken pipe/keyboard interrupt exceptions
+    signal.signal(signal.SIGPIPE, signal.SIG_DFL)
+    signal.signal(signal.SIGINT, signal.SIG_DFL)
+
+    parser = argparse.ArgumentParser(
+        prog='skread',
+        description='Extract information from Sk database files.')
+    parser.add_argument('path_name', metavar='PATH',
+                        help='table configuration file, e.g. config.cft')
+    group = parser.add_mutually_exclusive_group(required=True)
+    group.add_argument('-s', '--summary', action='store_true',
+                        help='show table summary')
+    group.add_argument('-r', '--records', action='store_true',
+                        help='write records to the standard output')
+    group.add_argument('-x', '--export', action='store_true',
+                        help='export table to SQLite database')
+    parser.add_argument('-l', '--log-level', metavar='LEVEL',
+                        choices=('debug', 'info', 'warning', 'error'),
+                        default='info',
+                        help='set log level')
+    parser.add_argument('-c', '--columns', metavar='COL_SPEC',
+                        help='column selection, e.g. NAME(TYPE),...')
+    parser.add_argument('-o', '--output', metavar='FILE',
+                        help='output file name')
+    parser.add_argument('-t', '--table-name', metavar='NAME',
+                        help='table name')
+    parser.add_argument('-n', '--no-strip', action='store_true',
+                        help='don\'t strip trailing \\0 character')
+
+    args = parser.parse_args()
+
+    logging.basicConfig(
+        format='%(levelname)s: %(message)s',
+        level=getattr(logging, args.log_level.upper()))
+
+    logging.debug('parsing command line arguments')
+
+    if args.export:
+        if not args.table_name:
+            parser.error('table name required')
+        if not args.output:
+            parser.error('output file name required')
+
+        if args.columns:
+            column_spec = re.compile('^([^(]+)(\(([^(]+)\))?')
+
+            columns = []
+            for col in args.columns.split(','):
+                m = re.match(column_spec, col)
+                if not m:
+                    parser.error('bad column specification: {}'.format(col))
+                columns.append((m.group(1), m.group(3)))
+        else:
+            columns = None
+
+        try:
+            table = read_table(args.path_name)
+            export(table, args.output, args.table_name, columns,
+                   not args.no_strip)
+        except Error as e:
+            logging.error(e)
+            raise SystemExit(1)
+
+        raise SystemExit(0)
+
+    if args.summary:
+        try:
+            describe(read_table(args.path_name))
+        except Error as e:
+            logging.error(e)
+            raise SystemExit(1)
+        raise SystemExit(0)
+
+    if args.records:
+        try:
+            for record in get_records(read_table(args.path_name)):
+                print(str(record))
+        except Error as e:
+            logging.error(e)
+            raise SystemExit(1)
+        raise SystemExit(0)
