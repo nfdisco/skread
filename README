@@ -38,7 +38,7 @@ in that order.
 3. Execute skread using the parameters from the file.
 
 grep -v ^# dir.in | awk 'BEGIN { RS="\f" } /\S/ { print $4 "/" $2;
-     system("./skread.py -x -t " $2 " -c \"" $3 "\" -o " $4 " " $1) }'
+     system("./skread -x -t " $2 " -c \"" $3 "\" -o " $4 " " $1) }'
 
 This may take a while, depending on the size of the databases.
 
