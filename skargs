@@ -49,7 +49,7 @@ columns () {
 zero_rows () {
     grep . \
     | tail -n 1 \
-    | grep -q "[[:space:]]*0[[:space:]]"
+    | grep -q "^[[:space:]]*0[[:space:]]"
 }
 
 generate_args () {
