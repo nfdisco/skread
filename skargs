@@ -1,6 +1,6 @@
 #!/bin/sh
 
-SKREAD="./skread.py"
+SKREAD="${SKREAD:=./skread}"
 
 db_name () (
     IFS=/
