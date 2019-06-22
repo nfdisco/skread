@@ -1,0 +1,12 @@
+build-aux/
+Makefile
+Makefile.in
+aclocal.m4
+*.cache/
+config.log
+config.status
+configure
+install-sh
+missing
+src/Makefile
+
