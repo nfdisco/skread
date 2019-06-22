@@ -1,0 +1,14 @@
+Source: skread
+Maintainer: nfdisco <nr9@posteo.de>
+Section: misc
+Priority: optional
+Build-Depends: debhelper (>= 10)
+
+Package: skread
+Architecture: all
+Depends: python3
+Description: Extract information from Sk databases
+ A command-line program that extracts information from databases stored
+ in Sk file format.  It can be used to print a summary of database
+ tables and to export them to SQLite format.
+
