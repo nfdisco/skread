@@ -88,7 +88,7 @@ generate_args () {
     printf "${pre}%s\n" "$table"
     printf "${pre}%s\n" "$column_spec"
     printf "${pre}%s\n" "${output}.db"
-    printf "\f"
+    printf "\f\n"
 }
 
 if [ $# -eq 0 ]; then
