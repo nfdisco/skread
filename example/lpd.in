@@ -1,3 +1,5 @@
+# -*- mode: conf -*-
+#
 lpd/lpd.data/fs_pd.skn/dirs.skn/config.cft
 dirs
 NAME(TEXT),DIRS,FILES,PARENT
@@ -184,6 +186,12 @@ files
 TYPE,CONTENT(BLOB),NAME(TEXT),TITLE(TEXT),A_FILE,TEXTTITLE(TEXT),A_DIRS
 pdf.db
 
+# unable to determine table name
+lpd/lpd.data/pic_entries.skn/config.cft
+pic_entries
+label(BLOB),a_id,id(BLOB)
+pic_entries.db
+
 lpd/lpd.data/pic.skn/dirs.skn/config.cft
 dirs
 NAME(TEXT),DIRS,FILES,PARENT
@@ -192,6 +200,16 @@ pic.db
 lpd/lpd.data/pic.skn/dirs.skn/DIRS.skn/config.cft
 dirs_DIRS
 A_DIRS
+pic.db
+
+lpd/lpd.data/pic.skn/dirs.skn/FILES.skn/config.cft
+dirs_FILES
+A_FILE
+pic.db
+
+lpd/lpd.data/pic.skn/files.skn/config.cft
+files
+TYPE,CONTENT(BLOB),NAME(TEXT),TITLE(TEXT),A_FILE,TEXTTITLE(TEXT),A_DIRS
 pic.db
 
 lpd/lpd.data/pronguide.skn/dirs.skn/config.cft
@@ -213,6 +231,11 @@ lpd/lpd.data/pronguide.skn/files.skn/config.cft
 files
 TYPE,CONTENT(BLOB),NAME(TEXT),TITLE(TEXT),A_FILE,TEXTTITLE(TEXT),A_DIRS
 pronguide.db
+
+lpd/lpd.data/sound.skn/dirs.skn/config.cft
+dirs
+NAME(TEXT),DIRS,FILES,PARENT
+sound.db
 
 lpd/lpd.data/sound.skn/dirs.skn/DIRS.skn/config.cft
 dirs_DIRS
